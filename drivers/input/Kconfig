@@ -17,3 +17,54 @@ config INPUT_PINNACLE_REPORT_INTERVAL_MIN
     help
       Default minimum report interval in milliseconds.
       Slow down input reporting for hid queue over the air.
+
+config INPUT_PINNACLE_MACCEL
+    bool "Enabled maccel"
+    default n
+    help
+      Enables drive level mouse acceleration based on burkfers and Wimads keyboard mouse acceleration equation.
+      Make sure to disable OS level mouse acceleration when using it
+
+config INPUT_PINNACLE_MACCEL_TAKEOFF
+    int "Mouse acceleration curve takes off more smoothly/abruptly, it will be divided by 100"
+    default 200
+    help
+        The TAKEOFF variable controls how smoothly or abruptly the acceleration curve takes off.
+        A higher value will make it take off more abruptly, a lower value smoothens out the start of the curve.
+
+config INPUT_PINNACLE_MACCEL_GROWTH_RATE
+    int "Mouse acceleration curve reaches its upper limit slower/faster, it will be divided by 100"
+    default 025
+    help
+        The GROWTH_RATE variable sets the growth rate of the acceleration curve.
+        A lower value will result in a flatter curve which takes longer to reach its LIMIT.
+        A higher value will result in a steeper curve, which will reach its LIMIT faster.
+
+config INPUT_PINNACLE_MACCEL_OFFSET
+    int "Mouse acceleration acceleration kicks in earlier/later, it will be divided by 100"
+    default 220
+    help
+        The OFFSET variable moves the entire curve towards the right. Offsetting the curve to the right 
+        means acceleration will kick in later, which is useful for low speed precision - in effect what 
+        you would otherwise have used SNIPING mode for. The maccel feature basically eliminates the 
+        need for a sniping mode.
+
+config INPUT_PINNACLE_MACCEL_LIMIT
+    int "Mouse acceleration lower limit of accel curve (minimum acceleration factor)"
+    default 020
+    help
+        The LIMIT variable sets the lower limit for the acceleration curve.
+        This is the minimum acceleration factor at which the curve will start.
+        In effect this adjusts the sensitivity for low speed precision movements.
+
+config INPUT_PINNACLE_MACCEL_LIMIT_UPPER
+    int "Mouse acceleration upper limit of accel curve (maximum acceleration factor), it will be divided by 100"
+    default 100
+    help
+        The upper limit of the curve is fixed at 1, which means that at high speed sensitivity equals your default DPI. If you want to adjust high speed sensitivity, adjust your DPI.
+
+config INPUT_PINNACLE_MACCEL_ROUNDING_CARRY_TIMEOUT_MS
+    int "Mouse acceleration reset error correction"
+    default 200
+    help
+        Milliseconds after which to reset quantization error correction (forget rounding remainder)

@@ -10,10 +10,24 @@
 
 #include <zephyr/logging/log.h>
 
+#include "math.h"
 #include "input_pinnacle.h"
 
 LOG_MODULE_REGISTER(pinnacle, CONFIG_INPUT_LOG_LEVEL);
 
+
+#ifdef CONFIG_INPUT_PINNACLE_MACCEL
+static int64_t maccel_timer;
+static maccel_config_t g_maccel_config = {
+    // clang-format off
+    .growth_rate =  CONFIG_INPUT_PINNACLE_MACCEL_GROWTH_RATE / 100.0f,
+    .offset =       CONFIG_INPUT_PINNACLE_MACCEL_OFFSET / 100.0f,
+    .limit =        CONFIG_INPUT_PINNACLE_MACCEL_LIMIT / 100.0f,
+    .takeoff =      CONFIG_INPUT_PINNACLE_MACCEL_TAKEOFF / 100.0f,
+    .enabled =      true
+    // clang-format on
+};
+#endif
 static int pinnacle_seq_read(const struct device *dev, const uint8_t addr, uint8_t *buf,
                              const uint8_t len) {
     const struct pinnacle_config *config = dev->config;
@@ -316,6 +330,46 @@ static void pinnacle_report_data(const struct device *dev) {
         input_report_rel(dev, INPUT_REL_WHEEL, dv, true, K_FOREVER);
     }
     else {
+
+#ifdef CONFIG_INPUT_PINNACLE_MACCEL
+            static float rounding_carry_x = 0;
+            static float rounding_carry_y = 0;
+            int16_t x = dx;
+            int16_t y = dy;
+
+            const int64_t delta_time = k_uptime_delta(&maccel_timer);
+            if (delta_time > CONFIG_INPUT_PINNACLE_MACCEL_ROUNDING_CARRY_TIMEOUT_MS) {
+                rounding_carry_x = 0;
+                rounding_carry_y = 0;
+            }
+            maccel_timer = k_uptime_get();
+            uint32_t device_cpi = 200;
+            const float dpi_correction = (float)1000.0f / device_cpi;
+            // calculate euclidean distance moved (sqrt(x^2 + y^2))
+            const float distance = sqrtf(x * x + y * y);
+            // calculate delta velocity: dv = distance/dt
+            const float velocity_raw = distance / delta_time;
+            // correct raw velocity for dpi
+            const float velocity = dpi_correction * velocity_raw;
+            // letter variables for readability of maths:
+            const float k = g_maccel_config.takeoff;
+            const float g = g_maccel_config.growth_rate;
+            const float s = g_maccel_config.offset;
+            const float m = g_maccel_config.limit;
+            // acceleration factor: f(v) = 1 - (1 - M) / {1 + e^[K(v - S)]}^(G/K):
+            // Generalised Sigmoid Function, see https://www.desmos.com/calculator/k9vr0y2gev
+            const float upper_limit = CONFIG_INPUT_PINNACLE_MACCEL_LIMIT_UPPER / 100.0f;
+            const float maccel_factor = upper_limit - (upper_limit - m) / powf(1 + expf(k * (velocity - s)), g / k);
+            // multiply mouse reports by acceleration factor, and account for previous quantization errors:
+            const float new_x = rounding_carry_x + maccel_factor * x;
+            const float new_y = rounding_carry_y + maccel_factor * y;
+            // Accumulate any difference from next integer (quantization).
+            rounding_carry_x = new_x - (int)new_x;
+            rounding_carry_y = new_y - (int)new_y;
+            // Clamp values and report back accelerated values.
+            dx = (int16_t)CLAMP(new_x, INT16_MIN, INT16_MAX);
+            dy = (int16_t)CLAMP(new_y, INT16_MIN, INT16_MAX);
+#endif
         input_report_rel(dev, INPUT_REL_X, dx, false, K_FOREVER);
         input_report_rel(dev, INPUT_REL_Y, dy, true, K_FOREVER);
     }

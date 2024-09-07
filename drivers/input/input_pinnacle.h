@@ -102,3 +102,13 @@ struct pinnacle_config {
     enum pinnacle_sensitivity sensitivity;
     const struct gpio_dt_spec dr;
 };
+
+#ifdef CONFIG_INPUT_PINNACLE_MACCEL
+typedef struct _maccel_config_t {
+    float growth_rate;
+    float offset;
+    float limit;
+    float takeoff;
+    bool  enabled;
+} maccel_config_t;
+#endif
